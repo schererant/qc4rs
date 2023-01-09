@@ -59,7 +59,7 @@ def download_dataset(dataset_name, target_folder, dataset_config=DATASETS_CONFIG
                                     reporthook=t.update_to)
 
 
-#TODO: Taken from hyperpsectral pacakge
+# Taken from hyperpsectral pacakge
 def sample_gt(gt, train_size, mode='random', random_state=None):
     """Extract a fixed percentage of samples from an array of labels.
 

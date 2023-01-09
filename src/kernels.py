@@ -86,6 +86,4 @@ class QuantumKernel:
 
         #TODO: CERN people mixed up order of nested for loop, extended to different train/test data
 
-
-
         return gram

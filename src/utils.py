@@ -1,24 +1,22 @@
 import matplotlib
 from matplotlib import pyplot as plt
 import numpy as np
-# from pydantic import NoneIsAllowedError
 import spectral
 from plotly import tools as tls
 import seaborn as sns
 
 
-#TODO: rewrite
+# TODO: rewrite
 def build_dataset(img, gt, ignored_labels=None):
-    """Create a list of training samples based on an image and a mask.
-
+    """Build a dataset from an image and a ground truth.
     Args:
-        mat: 3D hyperspectral matrix to extract the spectrums from
+        img: 3D image
         gt: 2D ground truth
-        ignored_labels (optional): list of classes to ignore, e.g. 0 to remove
-        unlabeled pixels
-        return_indices (optional): bool set to True to return the indices of
-        the chosen samples
+        ignored_labels (optional): list of labels to ignore
 
+    Returns:
+        dataset: 2D array of shape (n_samples, n_features)
+        labels: 1D array of shape (n_samples)
     """
     samples = []
     labels = []
@@ -38,13 +36,13 @@ def build_dataset(img, gt, ignored_labels=None):
 
 
 def pred_to_gt(indices_list, predictions, gt_shape):
-    """Convert a list of predictions to a ground truth array.
-
+    """Convert a prediction array to a ground truth array.
     Args:
-        indices_list: list of indices of the samples in the original image
-        predictions: list of predictions
+        indices_list: list of indices of the samples
+        predictions: 1D array of shape (n_samples)
+        gt_shape: shape of the ground truth
     Returns:
-        2D ground truth array
+        gt: 2D array of shape (n_rows, n_cols)
     """
     gt_pred = np.zeros(gt_shape)
     rolling = 0
@@ -54,7 +52,14 @@ def pred_to_gt(indices_list, predictions, gt_shape):
             rolling += 1
     return gt_pred
 
-def sendToVisdom(mpl_fig, vis, fix_aspect=True):
+
+def send_to_visdom(mpl_fig, vis, fix_aspect=True):
+    """Send a matplotlib figure to visdom.
+    Args:
+        mpl_fig: matplotlib figure
+        vis: Visdom display
+        fix_aspect: boolean
+    """
     plotly_fig = tls.mpl_to_plotly(mpl_fig, resize=True)
     if fix_aspect:
         plotly_fig.layout.yaxis.scaleanchor='x'
@@ -64,15 +69,15 @@ def sendToVisdom(mpl_fig, vis, fix_aspect=True):
     # json.dump(plotly)
     # vis._send({'data':plotly_fig.data , 'layout':plotly_fig.layout})
 
+
 #TODO: Alternative to matplotlib?
 def show_img_gt(img, gt, label_values, rgb, vis):
-    """
-    Display an image with ground truth.
+    """Show an image and its ground truth.
     Args:
-        img: 3D hyperspectral image
-        labels: 2D ground truth
+        img: 3D image
+        gt: 2D ground truth
         label_values: list of class names
-        rgb: bool set to True to display the image in RGB
+        rgb: boolean
         vis: Visdom display
     """
     # create handles for legend
@@ -101,6 +106,7 @@ def show_img_gt(img, gt, label_values, rgb, vis):
     vis.matplot(fig)
 
     # sendToVisdom(fig, vis)
+
 
 #Taken from HyperspectalRepo
 def explore_spectra(img, complete_gt, class_names, vis,
@@ -146,6 +152,7 @@ def explore_spectra(img, complete_gt, class_names, vis,
         mean_spectrums[class_names[c]] = mean_spectrum
     return mean_spectrums
 
+
 def display_train_test_split(gt, train_gt, test_gt, ax0_name, ax1_name, label_values, vis):
     """
     Display the train and test split in a grid.
@@ -188,41 +195,6 @@ def display_train_test_split(gt, train_gt, test_gt, ax0_name, ax1_name, label_va
     else:
         plt.show()
     # sendToVisdom(fig, vis)
-    
-
-# #TODO: Taken from HyperspectralRepo
-# def build_dataset(mat, gt, ignored_labels=None):
-#     """Create a list of training samples based on an image and a mask.
-
-#     Args:
-#         mat: 3D hyperspectral matrix to extract the spectrums from
-#         gt: 2D ground truth
-#         ignored_labels (optional): list of classes to ignore, e.g. 0 to remove
-#         unlabeled pixels
-#         return_indices (optional): bool set to True to return the indices of
-#         the chosen samples
-
-#     """
-#     samples = []
-#     labels = []
-#     # Check that image and ground truth have the same 2D dimensions
-#     assert mat.shape[:2] == gt.shape[:2]
-
-#     for label in np.unique(gt):
-#         if label in ignored_labels:
-#             continue
-#         else:
-#             indices = np.nonzero(gt == label)
-#             samples += list(mat[indices])
-#             labels += len(indices[0]) * [label]
-#     return np.asarray(samples), np.asarray(labels)
-
-# def build_dataset(img, gt, ignored_label):
-
-#     # Check whether img and gt have the same 2D dimensions
-#     assert img.shape[:2] == gt.shape[:2]
-
-#     # Delete ignored labels from ground truth
      
 
 def pretty_print_gram(gram_matrix, vis):
@@ -246,6 +218,7 @@ def pretty_print_gram(gram_matrix, vis):
     else:
         plt.show()
 
+
 def pretty_print_confusion_matrix(confusion_matrix, class_names, vis):
 
     plt.subplots(1, 1, figsize=(11, 7))
@@ -264,6 +237,7 @@ def pretty_print_confusion_matrix(confusion_matrix, class_names, vis):
     else:
         plt.show()
 
+
 def input_summary(arr):
     """Print summary of an input array.
     Args:
@@ -280,14 +254,15 @@ def input_summary(arr):
     print("Std: {}".format(np.std(arr)))
     print("----------------------------------------------------")
 
+
 def visdom_text(vis, text):
-    """Display text in visdom.
+    """Send text to Visdom.
     Args:
         vis: Visdom display
-        env: Visdom environment
-        text: Text to display
+        text: text to send
     """
     vis.text(text)
+
 
 #TODO: Make results a class
 def print_results_terminal(results):
@@ -300,27 +275,3 @@ def print_results_terminal(results):
     print('(Training Data) Classification report')
     print('-------------------------------------------------------------')
     print(results['classification_report'])
-
-# def input_discovery(img, gt, ignored_labels=None, vis=None):
-#     """
-#     Input discovery: plot the mean spectrum of each class and the mean spectrum
-#     of the whole image.
-#     Args:
-#         img: 3D hyperspectral image
-#         gt: 2D ground truth
-#         ignored_labels (optional): list of classes to ignore, e.g. 0 to remove
-#         unlabeled pixels
-#         vis: Visdom display
-#     """
-#     mean_spectrums = compute_mean_spectrums(img, gt, ignored_labels, vis)
-#     mean_spectrum = np.mean(img, axis=0)
-#     fig = plt.figure()
-#     plt.title("Mean Spectrum")
-#     plt.plot(mean_spectrum)
-#     for class_name, mean_spectrum in mean_spectrums.items():
-#         plt.plot(mean_spectrum, alpha=0.25)
-#     if vis is not None:
-#         vis.matplot(plt)
-#     else:
-#         plt.show()
-
