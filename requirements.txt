@@ -1,0 +1,12 @@
+dill==0.3.6
+jax==0.4.1
+matplotlib==3.6.2
+numpy==1.23.5
+PennyLane==0.28.0
+plotly==5.11.0
+scikit_learn==1.2.0
+scipy==1.10.0
+seaborn==0.12.2
+spectral==0.23.1
+tqdm==4.64.1
+visdom==0.2.3
