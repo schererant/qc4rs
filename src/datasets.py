@@ -40,6 +40,7 @@ DATASETS_CONFIG = {
         }
 }
 
+
 class TqdmUpTo(tqdm):
     def update_to(self, b=1, bsize=1, tsize=None):
         if tsize is not None:
@@ -56,6 +57,7 @@ def download_dataset(dataset_name, target_folder, dataset_config=DATASETS_CONFIG
                         desc="Downloading {}".format(filename)) as t:
                 urlretrieve(url, filename=target_folder + "/" + filename,
                                     reporthook=t.update_to)
+
 
 #TODO: Taken from hyperpsectral pacakge
 def sample_gt(gt, train_size, mode='random', random_state=None):
@@ -121,6 +123,7 @@ def sample_gt(gt, train_size, mode='random', random_state=None):
     else:
         raise ValueError("{} sampling is not implemented yet.".format(mode))
     return train_gt, test_gt
+
 
 class Dataset:
     def __init__(self, dataset_name: str, target_folder: str, pca_components=None, datasets=DATASETS_CONFIG):

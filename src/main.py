@@ -1,3 +1,4 @@
+""" Main module """
 import argparse
 import visdom
 from datasets import *
@@ -17,9 +18,11 @@ parser = argparse.ArgumentParser(
 parser.add_argument("--dataset", type=str, default=None, help=datasets)
 parser.add_argument("--model", type=str, default=None, help="Model to use")
 parser.add_argument("--cuda", type=int, default=-1, help="CUDA device to use, -1 is CPU")
-parser.add_argument('--folder', type=str, help="Folder where to store the "
-    "datasets (defaults to the current working directory).",
-    default="./Datasets/")
+parser.add_argument('--folder',
+                    type=str,
+                    help="Folder where to store the datasets "
+                         "(defaults to the current working directory).",
+                    default="./Datasets/")
 parser.add_argument('--restore', type=str, default=None,
     help="Weights to use for initialization, e.g. a checkpoint")
 parser.add_argument('--explore_spectra', action='store_true')
@@ -28,6 +31,7 @@ parser.add_argument('--visdom', action='store_true', default=True)
 # Models options
 parser.add_argument('--train_size', type=float, default=0.2)
 parser.add_argument('--sample_size', type=float, default=None)
+# TODO: no pca components produces error
 parser.add_argument('--pca_components', type=int, default=None)
 parser.add_argument('--sample_mode', type=str, default='random')
 
@@ -65,6 +69,10 @@ SAMPLE_MODE = args.sample_mode
 RANDOM_STATE = 42
 # Visdom
 VISDOM = args.visdom
+# Script path
+SCRIPT_DIR = os.path.dirname(__file__)  # <-- absolute dir the script is in
+REL_PATH = "../data"
+
 
 def main():
 
@@ -85,8 +93,6 @@ def main():
     # Check whether the dataset is already downloaded
 
     # target_folder
-    SCRIPT_DIR = os.path.dirname(__file__) #<-- absolute dir the script is in
-    REL_PATH = "../data"
     target_folder = os.path.join(SCRIPT_DIR, REL_PATH)
 
     if not os.path.isdir(target_folder+'/'+DATASET):
@@ -128,34 +134,59 @@ def main():
 
     if MODEL == 'SVM':
 
-        X_train, y_train, _ = build_dataset(
-            img = dataset.img,
-            gt = train_gt,
-            ignored_labels = dataset.ignored_labels)
-        X_pca, _, _ = build_dataset(dataset.img_pca, train_gt, ignored_labels=dataset.ignored_labels)
-        clf = sklearn.svm.SVC(kernel='rbf', C=1e3, gamma=0.1)
-        clf.fit(X_pca, y_train)
+        x_train, y_train, _ = build_dataset(
+            img=dataset.img,
+            gt=train_gt,
+            ignored_labels=dataset.ignored_labels)
+        # Assert of PCA_COMPONENTS are not None
+
+        assert PCA_COMPONENTS is not None, "PCA_COMPONENTS must be specified"
+        x_pca, _, _ = build_dataset(dataset.img_pca,
+                                    train_gt,
+                                    ignored_labels=dataset.ignored_labels)
+
+        svm = sklearn.svm.SVC(kernel='rbf', C=1e3, gamma=0.1)
+        svm.fit(x_pca, y_train)
         print('SVM model trained')
-        print('Accuracy: ', clf.score(X_pca, y_train))
+        print('Accuracy: ', svm.score(x_pca, y_train))
+        print(classification_report(y_train, svm.predict(x_pca)))
+
+        x_test, y_test, _ = build_dataset(
+            img=dataset.img,
+            gt=test_gt,
+            ignored_labels=dataset.ignored_labels)
+
+        print("Testing SVM model")
+        x_test_pca, _, _ = build_dataset(dataset.img_pca,
+                                         test_gt,
+                                         ignored_labels=dataset.ignored_labels)
+        print('Accuracy: ', svm.score(x_test_pca, y_test))
+        print(classification_report(y_test, svm.predict(x_test_pca)))
+
+
 
     #TODO: Should we normalize the data between 0 and pi?
 
-    elif MODEL == 'precomputed_SVM':
+    elif MODEL == 'precomputed-SVM':
         # Training
-        X_pca, y_train, _ = build_dataset(dataset.img_pca, train_gt, ignored_labels=dataset.ignored_labels)
+        x_pca, y_train, _ = build_dataset(dataset.img_pca,
+                                          train_gt,
+                                          ignored_labels=dataset.ignored_labels)
         svm = sklearn.svm.SVC(kernel='precomputed')
-        gram_matrix = np.dot(X_pca, X_pca.T)
+        gram_matrix = np.dot(x_pca, x_pca.T)
         svm.fit(gram_matrix, y_train)
         print('SVM model trained')
         print('Accuracy: ', svm.score(gram_matrix, y_train))
         print(classification_report(y_train, svm.predict(gram_matrix)))
 
         # Testing
-        X_test_pca, y_test, _ = build_dataset(dataset.img_pca, test_gt, ignored_labels=dataset.ignored_labels)
+        x_test_pca, y_test, _ = build_dataset(dataset.img_pca,
+                                              test_gt,
+                                              ignored_labels=dataset.ignored_labels)
         #TODO: Why is gram matrix classically just half the size?
-        gram_matrix_test = np.dot(X_test_pca, X_pca.T)
+        gram_matrix_test = np.dot(x_test_pca, x_pca.T)
         # np.save('gram_matrix_test.npy', gram_matrix_test)
-        print(gram_matrix_test[0])
+
 
         print('Accuracy on test set: ', svm.score(gram_matrix_test, y_test))
         print(classification_report(y_test, svm.predict(gram_matrix_test)))
@@ -164,9 +195,13 @@ def main():
         print('Selected Model: Quantum-SVM')
 
         # Inititalize dataset
-        X_train, y_train, train_indices = build_dataset(dataset.img, train_gt, ignored_labels=dataset.ignored_labels)
-        X_pca, _, _ = build_dataset(dataset.img_pca, train_gt, ignored_labels=dataset.ignored_labels)
-        #input_summary(X_train)
+        x_train, y_train, train_indices = build_dataset(dataset.img,
+                                                        train_gt,
+                                                        ignored_labels=dataset.ignored_labels)
+        x_pca, _, _ = build_dataset(dataset.img_pca,
+                                    train_gt,
+                                    ignored_labels=dataset.ignored_labels)
+        #input_summary(x_train)
 
         # Initialize model
         quantum_svm = QuantumSVM(featuremap_name='zz_entangled',
@@ -174,24 +209,30 @@ def main():
 
         # Train model
         quantum_svm.train_svm(
-            train_data=X_pca,
+            train_data=x_pca,
             train_gt=y_train,
-            label_names=[j for i,j in enumerate(dataset.label_values) if i not in dataset.ignored_labels],
-            load_model=True)
-        pretty_print_confusion_matrix(quantum_svm.train_results['confusion_matrix'], dataset.label_values, vis=vis)
+            label_names=[j for i, j in enumerate(dataset.label_values)
+                         if i not in dataset.ignored_labels], load_model=True)
+        pretty_print_confusion_matrix(quantum_svm.train_results['confusion_matrix'],
+                                      dataset.label_values, vis=vis)
 
         # Load test model
-        X_test, y_test, test_indices = build_dataset(dataset.img, test_gt, ignored_labels=dataset.ignored_labels)
-        X_test_pca, _, _ = build_dataset(dataset.img_pca, test_gt, ignored_labels=dataset.ignored_labels)
+        x_test, y_test, test_indices = build_dataset(dataset.img,
+                                                     test_gt,
+                                                     ignored_labels=dataset.ignored_labels)
+        x_test_pca, _, _ = build_dataset(dataset.img_pca,
+                                         test_gt,
+                                         ignored_labels=dataset.ignored_labels)
 
         # Test model
         quantum_svm.test(
-            test_data=X_test_pca,
+            test_data=x_test_pca,
             test_gt=y_test,
-            train_data=X_pca,
-            label_names=[j for i,j in enumerate(dataset.label_values) if i not in dataset.ignored_labels],
-            load_model=True)
-        pretty_print_confusion_matrix(quantum_svm.test_results['confusion_matrix'], dataset.label_values, vis=vis)
+            train_data=x_pca,
+            label_names=[j for i, j in enumerate(dataset.label_values)
+                         if i not in dataset.ignored_labels], load_model=True)
+        pretty_print_confusion_matrix(quantum_svm.test_results['confusion_matrix'],
+                                      dataset.label_values, vis=vis)
 
         # Convert prediction to original image shape
         gt_train_pred = pred_to_gt(
@@ -243,22 +284,9 @@ def main():
     elif MODEL == 'QCNN':
         pass
 
-
     else:
         print('Please choose existing model')
 
+
 if __name__ == "__main__":
     main()
-
-# write c
-
-
-
-
-
-
-
-
-
-
-
